@@ -11,6 +11,12 @@
 (define-data-var next-storage-id uint u1)
 (define-data-var next-sale-id uint u1)
 
+(define-constant err-invalid-threshold (err u107))
+(define-constant err-threshold-not-set (err u108))
+
+(define-data-var next-alert-id uint u1)
+
+
 (define-map authorized-oracles principal bool)
 (define-map farmers principal bool)
 
@@ -295,4 +301,121 @@
 
 (define-read-only (get-total-sales)
   (- (var-get next-sale-id) u1)
+)
+
+
+(define-map crop-quality-thresholds
+  (string-ascii 50)
+  {
+    min-temp: int,
+    max-temp: int,
+    min-humidity: uint,
+    max-humidity: uint,
+    set-by: principal
+  }
+)
+
+(define-map quality-alerts
+  uint
+  {
+    storage-id: uint,
+    crop-type: (string-ascii 50),
+    alert-type: (string-ascii 20),
+    threshold-value: int,
+    actual-value: int,
+    timestamp: uint,
+    farmer: principal
+  }
+)
+
+(define-public (set-quality-threshold
+  (crop-type (string-ascii 50))
+  (min-temp int)
+  (max-temp int)
+  (min-humidity uint)
+  (max-humidity uint)
+)
+  (begin
+    (asserts! (is-registered-farmer tx-sender) err-unauthorized)
+    (asserts! (< min-temp max-temp) err-invalid-threshold)
+    (asserts! (< min-humidity max-humidity) err-invalid-threshold)
+    
+    (map-set crop-quality-thresholds crop-type {
+      min-temp: min-temp,
+      max-temp: max-temp,
+      min-humidity: min-humidity,
+      max-humidity: max-humidity,
+      set-by: tx-sender
+    })
+    
+    (ok true)
+  )
+)
+
+(define-private (check-and-create-alert
+  (storage-id uint)
+  (crop-type (string-ascii 50))
+  (temperature int)
+  (humidity uint)
+  (farmer principal)
+)
+  (let
+    (
+      (thresholds (map-get? crop-quality-thresholds crop-type))
+    )
+    (match thresholds
+      threshold-data
+      (begin
+        (if (< temperature (get min-temp threshold-data))
+          (create-alert storage-id crop-type "low-temp" (get min-temp threshold-data) temperature farmer)
+          (if (> temperature (get max-temp threshold-data))
+            (create-alert storage-id crop-type "high-temp" (get max-temp threshold-data) temperature farmer)
+            true))
+        (if (< humidity (get min-humidity threshold-data))
+          (create-alert storage-id crop-type "low-humidity" (to-int (get min-humidity threshold-data)) (to-int humidity) farmer)
+          (if (> humidity (get max-humidity threshold-data))
+            (create-alert storage-id crop-type "high-humidity" (to-int (get max-humidity threshold-data)) (to-int humidity) farmer)
+            true))
+      )
+      true
+    )
+  )
+)
+
+(define-private (create-alert
+  (storage-id uint)
+  (crop-type (string-ascii 50))
+  (alert-type (string-ascii 20))
+  (threshold-value int)
+  (actual-value int)
+  (farmer principal)
+)
+  (let
+    (
+      (alert-id (var-get next-alert-id))
+    )
+    (map-set quality-alerts alert-id {
+      storage-id: storage-id,
+      crop-type: crop-type,
+      alert-type: alert-type,
+      threshold-value: threshold-value,
+      actual-value: actual-value,
+      timestamp: stacks-block-height,
+      farmer: farmer
+    })
+    (var-set next-alert-id (+ alert-id u1))
+    true
+  )
+)
+
+(define-read-only (get-quality-threshold (crop-type (string-ascii 50)))
+  (map-get? crop-quality-thresholds crop-type)
+)
+
+(define-read-only (get-quality-alert (alert-id uint))
+  (map-get? quality-alerts alert-id)
+)
+
+(define-read-only (get-total-alerts)
+  (- (var-get next-alert-id) u1)
 )
