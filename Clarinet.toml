@@ -1,0 +1,42 @@
+[project]
+name = 'Blockchain-Farm-Inventory-Ledger'
+description = ''
+authors = []
+telemetry = true
+cache_dir = '.\.cache'
+requirements = []
+[contracts.Blockchain-Farm-Inventory-Ledger]
+path = 'contracts/Blockchain-Farm-Inventory-Ledger.clar'
+clarity_version = 3
+epoch = 3.1
+
+[contracts.batch-processor]
+path = 'contracts/batch-processor.clar'
+clarity_version = 3
+epoch = 3.1
+
+[contracts.crop-certification-system]
+path = 'contracts/crop-certification-system.clar'
+clarity_version = 3
+epoch = 3.1
+
+[contracts.crop-insurance-claims]
+path = 'contracts/crop-insurance-claims.clar'
+clarity_version = 3
+epoch = 3.1
+[contracts.crop-marketplace]
+path = 'contracts/crop-marketplace.clar'
+clarity_version = 3
+epoch = 3.1
+[repl.analysis]
+passes = ['check_checker']
+
+[repl.analysis.check_checker]
+strict = false
+trusted_sender = false
+trusted_caller = false
+callee_filter = false
+
+[repl.remote_data]
+enabled = false
+api_url = 'https://api.hiro.so'
